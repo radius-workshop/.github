@@ -22,17 +22,40 @@ Then commit and push to your default branch.
 
 ## Prerequisites
 
-The `ANTHROPIC_API_KEY` org-level secret must be configured. If PRs aren't triggering the review, contact an org admin to verify the secret is set.
+The workflow needs the `ANTHROPIC_API_KEY` secret. On the Free GitHub plan,
+org-level secrets are only available to **public** repos.
 
-## What Gets Scanned
+For **public repos**: The org secret is automatically available. No extra setup needed.
 
-In addition to standard security checks (SQL injection, XSS, command injection, etc.), the org-wide configuration adds checks for:
+For **private repos**: The reusable workflow approach won't have access to the
+org secret. Either:
+- Add `ANTHROPIC_API_KEY` as a repo-level secret
+  (Settings > Secrets and variables > Actions > New repository secret)
+- Or make the repo public
 
-- **Insecure defaults** — debug mode, wildcard CORS, hardcoded secrets
-- **Copy-paste hazards** — credentials in code/comments, string-concatenated queries
-- **Missing security fundamentals** — unauthenticated endpoints, no input validation
-- **Dependency risks** — unpinned versions, deprecated packages
-- **AI tool security** — MCP servers, skills, and plugins without auth, sandboxing, or input validation
+## Org-Level Setup (One-Time)
+
+These steps only need to be done once by an org admin.
+
+### 1. Add the Anthropic API key as an org secret
+
+Go to Org Settings > Secrets and variables > Actions > New organization secret.
+Add `ANTHROPIC_API_KEY` with visibility set to "All repositories".
+
+### 2. Require approval for fork PRs
+
+This prevents untrusted PRs from triggering the security review (which is
+not hardened against prompt injection).
+
+```bash
+gh auth refresh -h github.com -s admin:org
+
+gh api orgs/radius-workshop/actions/permissions \
+  --method PUT \
+  --field allowed_actions=all \
+  --field enabled_repositories=all \
+  --field fork_pull_request_workflows_approval_policy=require-approval-for-all-outside-collaborators
+```
 
 ## Options
 
@@ -51,6 +74,16 @@ jobs:
     secrets:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 ```
+
+## Security Categories
+
+In addition to standard security checks (SQL injection, XSS, command injection, etc.), the org-wide configuration adds checks for:
+
+- **Insecure defaults** — debug mode, wildcard CORS, hardcoded secrets
+- **Copy-paste hazards** — credentials in code/comments, string-concatenated queries
+- **Missing security fundamentals** — unauthenticated endpoints, no input validation
+- **Dependency risks** — unpinned versions, deprecated packages
+- **AI tool security** — MCP servers, skills, and plugins without auth, sandboxing, or input validation
 
 ## More Information
 
