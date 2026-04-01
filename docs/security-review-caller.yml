@@ -7,5 +7,7 @@ on:
 jobs:
   security-review:
     uses: radius-workshop/.github/.github/workflows/security-review.yml@main
+    with:
+      fail-on-findings: false  # set to true to fail the build on findings
     secrets:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

@@ -17,7 +17,7 @@ Then commit and push to your default branch.
 
 - Scans PR diffs for security vulnerabilities using Claude
 - Posts findings as PR comments
-- Fails the workflow if vulnerabilities are found
+- Optionally fails the build when findings are detected (off by default)
 - Uses org-wide custom scan instructions tuned for demo/example apps
 
 ## Prerequisites
@@ -33,6 +33,24 @@ In addition to standard security checks (SQL injection, XSS, command injection, 
 - **Missing security fundamentals** — unauthenticated endpoints, no input validation
 - **Dependency risks** — unpinned versions, deprecated packages
 - **AI tool security** — MCP servers, skills, and plugins without auth, sandboxing, or input validation
+
+## Options
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `fail-on-findings` | `false` | Set to `true` to fail the build when security findings are detected |
+
+To enable, add a `with` block in your caller workflow:
+
+```yaml
+jobs:
+  security-review:
+    uses: radius-workshop/.github/.github/workflows/security-review.yml@main
+    with:
+      fail-on-findings: true
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+```
 
 ## More Information
 

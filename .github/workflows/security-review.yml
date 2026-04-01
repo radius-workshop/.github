@@ -9,6 +9,8 @@
 #   jobs:
 #     security-review:
 #       uses: radius-workshop/.github/.github/workflows/security-review.yml@main
+#       with:
+#         fail-on-findings: false  # set to true to fail the build on findings
 #       secrets:
 #         ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 #
@@ -27,6 +29,12 @@ name: Claude Security Review
 
 on:
   workflow_call:
+    inputs:
+      fail-on-findings:
+        description: 'Fail the build when security findings are detected'
+        type: boolean
+        default: false
+        required: false
     secrets:
       ANTHROPIC_API_KEY:
         required: true
@@ -61,7 +69,7 @@ jobs:
           false-positive-filtering-instructions: .org-github/security/false-positive-filtering.txt
 
       - name: Fail if vulnerabilities found
-        if: steps.security-review.outputs.findings-count > 0
+        if: inputs.fail-on-findings && steps.security-review.outputs.findings-count > 0
         run: |
           echo "Found ${{ steps.security-review.outputs.findings-count }} security findings"
           exit 1
