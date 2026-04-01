@@ -1,27 +1,9 @@
 # Claude Security Review — Org-wide Reusable Workflow
 #
-# Usage: Add this to any repo's .github/workflows/security-review.yml:
+# To add this to a repo, see docs/security-review-setup.md or run:
 #
-#   name: Claude Security Review
-#   on:
-#     pull_request:
-#       types: [opened, synchronize, reopened]
-#   jobs:
-#     security-review:
-#       uses: radius-workshop/.github/.github/workflows/security-review.yml@main
-#       with:
-#         fail-on-findings: false  # set to true to fail the build on findings
-#       secrets:
-#         ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-#
-# Prerequisites:
-#   1. Set ANTHROPIC_API_KEY as an org-level secret
-#      (Org Settings > Secrets and variables > Actions)
-#      The key must be enabled for both Claude API and Claude Code usage.
-#
-#   2. Recommended: Configure "Require approval for all external contributors"
-#      (Settings > Actions > General > Approval for running fork pull request workflows)
-#      This action is not hardened against prompt injection from untrusted PRs.
+#   mkdir -p .github/workflows && curl -o .github/workflows/security-review.yml \
+#     https://raw.githubusercontent.com/radius-workshop/.github/main/docs/security-review-caller.yml
 #
 # See: https://github.com/anthropics/claude-code-security-review
 
