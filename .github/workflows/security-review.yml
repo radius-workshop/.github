@@ -1,0 +1,67 @@
+# Claude Security Review — Org-wide Reusable Workflow
+#
+# Usage: Add this to any repo's .github/workflows/security-review.yml:
+#
+#   name: Claude Security Review
+#   on:
+#     pull_request:
+#       types: [opened, synchronize, reopened]
+#   jobs:
+#     security-review:
+#       uses: radius-workshop/.github/.github/workflows/security-review.yml@main
+#       secrets:
+#         ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+#
+# Prerequisites:
+#   1. Set ANTHROPIC_API_KEY as an org-level secret
+#      (Org Settings > Secrets and variables > Actions)
+#      The key must be enabled for both Claude API and Claude Code usage.
+#
+#   2. Recommended: Configure "Require approval for all external contributors"
+#      (Settings > Actions > General > Approval for running fork pull request workflows)
+#      This action is not hardened against prompt injection from untrusted PRs.
+#
+# See: https://github.com/anthropics/claude-code-security-review
+
+name: Claude Security Review
+
+on:
+  workflow_call:
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  security-review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/checkout@v6
+        with:
+          repository: radius-workshop/.github
+          path: .org-github
+          sparse-checkout: security
+
+      - uses: anthropics/claude-code-security-review@main
+        id: security-review
+        with:
+          claude-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          custom-security-scan-instructions: .org-github/security/custom-scan-instructions.txt
+          false-positive-filtering-instructions: .org-github/security/false-positive-filtering.txt
+
+      - name: Fail if vulnerabilities found
+        if: steps.security-review.outputs.findings-count > 0
+        run: |
+          echo "Found ${{ steps.security-review.outputs.findings-count }} security findings"
+          exit 1

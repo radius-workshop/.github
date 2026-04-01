@@ -1,0 +1,42 @@
+**Insecure Defaults:**
+- Debug mode enabled in application configuration (e.g., DEBUG=True, NODE_ENV=development)
+- Wildcard CORS configuration (Access-Control-Allow-Origin: *)
+- Secret keys hardcoded in source code rather than loaded from environment variables or config files
+- TLS/SSL verification disabled (verify=False, rejectUnauthorized=false, --no-check-certificate)
+- Permissive file upload settings with no type or size restrictions
+- Default admin credentials or accounts
+
+**Copy-Paste Hazards:**
+- Credentials, API keys, or connection strings in code, comments, or README examples
+- .env files or config files with real or realistic-looking secrets committed to the repo
+- Example code that demonstrates database queries using string concatenation instead of parameterized queries
+- Commented-out security checks (e.g., "// TODO: add authentication")
+- Hardcoded localhost/development URLs that suggest no environment-based configuration
+
+**Missing Security Fundamentals:**
+- API endpoints with no authentication or authorization checks
+- User input passed directly to file system operations, shell commands, or template rendering
+- No input length or size limits on user-facing fields
+- Session or token configuration with no expiration
+- Error responses that leak stack traces, file paths, or internal details
+
+**Dependency Risks:**
+- Dependencies pinned to "latest" or unpinned versions
+- Use of deprecated or archived packages with known vulnerabilities
+- Import of packages with typosquatting-risk names
+
+**AI Tool Security (MCP Servers, Skills, Plugins):**
+- MCP server endpoints with no authentication or authorization checks
+- Tool descriptions or prompt templates that include unsanitized user input (prompt injection vectors)
+- Tools that execute shell commands, file operations, or database queries without input sanitization
+- Overly broad tool permissions (e.g., file read tools with no path restrictions)
+- Sensitive data returned in tool responses that will be passed into LLM context
+- MCP transport with no TLS encryption
+- Tool parameter values passed to eval(), exec(), or template rendering without validation
+- Skills or plugins that send conversation context to external services
+- Plugins requesting permissions beyond their stated purpose
+- Plugins loaded from untrusted sources without integrity verification (checksums, signatures)
+- No sandboxing or isolation between AI components
+- Logging of sensitive data (API keys, user content, credentials) flowing through AI pipelines
+- Auto-update mechanisms for plugins that could pull compromised versions
+- Dependency confusion risks with AI package registries

@@ -1,0 +1,12 @@
+HARD EXCLUSIONS:
+1. Test files containing intentional vulnerabilities for security testing purposes
+
+SIGNAL QUALITY CRITERIA - For remaining findings, assess:
+1. If someone copy-pasted this code into a production application, would it create a real vulnerability?
+2. Is the vulnerability exploitable without additional infrastructure safeguards that a typical developer may not have?
+3. Does the code demonstrate a dangerous pattern even if the specific example is not directly exploitable?
+
+PRECEDENTS:
+1. These repositories contain demo and example applications — assume no infrastructure-level security controls exist
+2. Assume the audience is developers and AI coding assistants who may copy code verbatim into production
+3. Err on the side of flagging rather than excluding — a false positive is preferable to a missed vulnerability
