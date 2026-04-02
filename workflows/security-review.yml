@@ -1,0 +1,57 @@
+# Claude Security Review — Org-wide Reusable Workflow
+#
+# To add this to a repo, see docs/security-review-setup.md or run:
+#
+#   mkdir -p .github/workflows && curl -o .github/workflows/security-review.yml \
+#     https://raw.githubusercontent.com/radius-workshop/.github/main/docs/security-review-caller.yml
+#
+# See: https://github.com/anthropics/claude-code-security-review
+
+name: Claude Security Review
+
+on:
+  workflow_call:
+    inputs:
+      fail-on-findings:
+        description: 'Fail the build when security findings are detected'
+        type: boolean
+        default: false
+        required: false
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  security-review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/checkout@v6
+        with:
+          repository: radius-workshop/.github
+          path: .org-github
+          sparse-checkout: security
+
+      - uses: anthropics/claude-code-security-review@main
+        id: security-review
+        with:
+          claude-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          custom-security-scan-instructions: .org-github/security/custom-scan-instructions.txt
+          false-positive-filtering-instructions: .org-github/security/false-positive-filtering.txt
+
+      - name: Fail if vulnerabilities found
+        if: inputs.fail-on-findings && steps.security-review.outputs.findings-count > 0
+        run: |
+          echo "Found ${{ steps.security-review.outputs.findings-count }} security findings"
+          exit 1
