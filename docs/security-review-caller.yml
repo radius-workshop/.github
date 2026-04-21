@@ -22,6 +22,16 @@ on:
 
 jobs:
   security-review:
+    # Grant the writes the reusable workflow needs to post findings.
+    # Required because a reusable workflow cannot elevate beyond the
+    # caller's permissions, and GitHub's default GITHUB_TOKEN permissions
+    # are read-only on newer orgs/repos. Without this block the job is
+    # rejected before it starts.
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
     uses: radius-workshop/.github/.github/workflows/security-review.yml@main
     with:
       fail-on-findings: false  # set to true to fail the build on findings
