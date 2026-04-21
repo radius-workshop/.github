@@ -33,6 +33,15 @@ org secret. Either:
   (Settings > Secrets and variables > Actions > New repository secret)
 - Or make the repo public
 
+### Permissions
+
+The caller workflow grants the `pull-requests: write`, `issues: write`, and
+`id-token: write` permissions the reusable workflow needs to post findings.
+GitHub's default `GITHUB_TOKEN` permissions are read-only on newer orgs/repos,
+and a reusable workflow cannot elevate beyond the caller's permissions — so
+the `permissions:` block in the caller is load-bearing. If you hand-edit the
+caller, don't remove it, or the job will be rejected before it runs.
+
 ## Org-Level Setup (One-Time)
 
 These steps only need to be done once by an org admin.
@@ -68,6 +77,11 @@ To enable, add a `with` block in your caller workflow:
 ```yaml
 jobs:
   security-review:
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
     uses: radius-workshop/.github/.github/workflows/security-review.yml@main
     with:
       fail-on-findings: true
