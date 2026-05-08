@@ -1,97 +1,94 @@
-# Claude Security Review Setup
+# Org-Wide Security Review
 
-Automated security review that runs on every pull request using Claude.
+Every pull request opened against the default branch of any repository in
+the `radius-workshop` organization runs an automated security scan. PRs
+cannot be merged until the scan passes.
 
-## Quick Setup
+This document describes the configuration. There is **nothing to set up
+per repository** — new repos are covered automatically.
 
-From your repo's root directory:
+For a non-engineer-friendly summary, see the user-facing doc on Notion:
+**[Github Security Scanning with Claude](https://www.notion.so/Github-Security-Scanning-with-Claude-35a42ab48031809c8279ce2c9ff2a5e8)**.
 
-```bash
-mkdir -p .github/workflows && curl -o .github/workflows/security-review.yml \
-  https://raw.githubusercontent.com/radius-workshop/.github/main/docs/security-review-caller.yml
+## What's enforced
+
+The org-level ruleset `protect-main` targets every repository's default
+branch and applies these rules:
+
+- **Pull request required.** Direct pushes to `main` are rejected.
+- **Conversation resolution required.** Open review threads block merge.
+- **Required workflow.** `Claude Security Review (required)` must finish
+  cleanly. With `fail-on-findings: true` hardcoded, any finding fails the
+  workflow and blocks merge.
+- **Force-push and deletion blocked** on the default branch.
+- **Required approvals: 0.** The PR + scan gates apply at this level;
+  raise later if peer review becomes a requirement.
+
+Org admins appear in the ruleset's bypass list (pull requests only) as a
+safety valve for genuine emergencies.
+
+## How it's wired together
+
+```
+GitHub PR event
+        │
+        ▼
+  org ruleset (protect-main)
+        │ requires
+        ▼
+  security-review-required.yml ─── on: pull_request, fail-on-findings: true
+        │ uses (reusable workflow)
+        ▼
+  security-review.yml ─── checks out, runs the action with org secrets
+        │
+        ▼
+  anthropics/claude-code-security-review
+        + security/custom-scan-instructions.txt
+        + security/false-positive-filtering.txt
 ```
 
-Then commit and push to your default branch.
+| File | Role |
+|---|---|
+| `.github/workflows/security-review-required.yml` | Org-required entrypoint referenced by the ruleset. Triggers on `pull_request`, hardcodes the strict policy. |
+| `.github/workflows/security-review.yml` | Reusable workflow. Takes `fail-on-findings` and `ANTHROPIC_API_KEY` as inputs; runs the action. |
+| `security/custom-scan-instructions.txt` | Categories the scanner adds on top of standard checks. |
+| `security/false-positive-filtering.txt` | Patterns the scanner should treat as expected and not flag. |
 
-## What It Does
+## Secrets
 
-- Scans PR diffs for security vulnerabilities using Claude
-- Posts findings as PR comments
-- Optionally fails the build when findings are detected (off by default)
-- Uses org-wide custom scan instructions tuned for demo/example apps
+`ANTHROPIC_API_KEY` lives as an **org-level secret** with repository
+access set to "All repositories." The required workflow forwards it via
+`secrets: inherit`, so private and public repos resolve it the same way.
 
-## Prerequisites
+There should be no repo-level copies of `ANTHROPIC_API_KEY` — they are
+redundant and create drift.
 
-The workflow needs the `ANTHROPIC_API_KEY` secret. On the Free GitHub plan,
-org-level secrets are only available to **public** repos.
+## Adding a new repo
 
-For **public repos**: The org secret is automatically available. No extra setup needed.
+Nothing. The ruleset targets every repo in the org by default, so new
+repos are protected as soon as they're created.
 
-For **private repos**: The reusable workflow approach won't have access to the
-org secret. Either:
-- Add `ANTHROPIC_API_KEY` as a repo-level secret
-  (Settings > Secrets and variables > Actions > New repository secret)
-- Or make the repo public
+## Bypassing in an emergency
 
-### Permissions
+If a fix genuinely cannot wait for the scan (e.g. credential rotation),
+an org admin can bypass via the `protect-main` ruleset's bypass list. The
+bypass scope is "Allow for pull requests only," so direct-to-`main`
+pushes are still blocked. Document the reason in the PR body.
 
-The caller workflow grants the `pull-requests: write`, `issues: write`, and
-`id-token: write` permissions the reusable workflow needs to post findings.
-GitHub's default `GITHUB_TOKEN` permissions are read-only on newer orgs/repos,
-and a reusable workflow cannot elevate beyond the caller's permissions — so
-the `permissions:` block in the caller is load-bearing. If you hand-edit the
-caller, don't remove it, or the job will be rejected before it runs.
+## Handling findings
 
-## Org-Level Setup (One-Time)
+Findings appear as PR comments from the Claude action, each with a file,
+line, severity, and recommendation. To clear the gate:
 
-These steps only need to be done once by an org admin.
+- **Real issue**: fix the code, push again. The scan re-runs.
+- **False positive**: leave a comment with reasoning. If the pattern is
+  recurring, update `security/false-positive-filtering.txt` in this repo
+  so future runs suppress it.
 
-### 1. Add the Anthropic API key as an org secret
+## Custom categories
 
-Go to Org Settings > Secrets and variables > Actions > New organization secret.
-Add `ANTHROPIC_API_KEY` with visibility set to "All repositories".
-
-### 2. Require approval for fork PRs
-
-This prevents untrusted PRs from triggering the security review (which is
-not hardened against prompt injection).
-
-```bash
-gh auth refresh -h github.com -s admin:org
-
-gh api orgs/radius-workshop/actions/permissions \
-  --method PUT \
-  --field allowed_actions=all \
-  --field enabled_repositories=all \
-  --field fork_pull_request_workflows_approval_policy=require-approval-for-all-outside-collaborators
-```
-
-## Options
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `fail-on-findings` | `false` | Set to `true` to fail the build when security findings are detected |
-
-To enable, add a `with` block in your caller workflow:
-
-```yaml
-jobs:
-  security-review:
-    permissions:
-      contents: read
-      pull-requests: write
-      issues: write
-      id-token: write
-    uses: radius-workshop/.github/.github/workflows/security-review.yml@main
-    with:
-      fail-on-findings: true
-    secrets:
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-```
-
-## Security Categories
-
-In addition to standard security checks (SQL injection, XSS, command injection, etc.), the org-wide configuration adds checks for:
+In addition to standard security checks (SQL injection, XSS, command
+injection, etc.), the org-wide configuration adds:
 
 - **Insecure defaults** — debug mode, wildcard CORS, hardcoded secrets
 - **Copy-paste hazards** — credentials in code/comments, string-concatenated queries
@@ -99,8 +96,8 @@ In addition to standard security checks (SQL injection, XSS, command injection, 
 - **Dependency risks** — unpinned versions, deprecated packages
 - **AI tool security** — MCP servers, skills, and plugins without auth, sandboxing, or input validation
 
-## More Information
+## More information
 
 - [Custom scan instructions](../security/custom-scan-instructions.txt)
 - [False positive filtering](../security/false-positive-filtering.txt)
-- [Upstream action docs](https://github.com/anthropics/claude-code-security-review)
+- [Upstream action](https://github.com/anthropics/claude-code-security-review)

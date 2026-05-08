@@ -1,11 +1,10 @@
 # Claude Security Review — Org-wide Reusable Workflow
 #
-# To add this to a repo, see docs/security-review-setup.md or run:
+# Invoked automatically on every PR by the org-level protect-main
+# ruleset via security-review-required.yml. There is no per-repo
+# setup — see docs/security-review-setup.md for the full architecture.
 #
-#   mkdir -p .github/workflows && curl -o .github/workflows/security-review.yml \
-#     https://raw.githubusercontent.com/radius-workshop/.github/main/docs/security-review-caller.yml
-#
-# See: https://github.com/anthropics/claude-code-security-review
+# Upstream action: https://github.com/anthropics/claude-code-security-review
 
 name: Claude Security Review
 
