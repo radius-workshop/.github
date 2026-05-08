@@ -1,0 +1,30 @@
+# Claude Security Review — Org-required Entrypoint
+#
+# This workflow is the file referenced by the org-level ruleset's
+# "Require workflows to pass before merging" rule. It runs on every PR in
+# every targeted repo and calls the reusable security-review.yml in this
+# same repo to do the actual scanning.
+#
+# Policy lives here (e.g. fail-on-findings: true). The reusable workflow
+# stays policy-neutral so per-repo callers can opt into softer settings.
+#
+# Do not add per-repo callers of this file — repos that want a softer
+# policy should call security-review.yml directly with their own inputs.
+
+name: Claude Security Review (required)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  security-review:
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    uses: radius-workshop/.github/.github/workflows/security-review.yml@main
+    with:
+      fail-on-findings: true
+    secrets: inherit
