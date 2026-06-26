@@ -19,6 +19,7 @@ on:
 
 jobs:
   security-review:
+    if: github.event.pull_request.user.login != 'dependabot[bot]'
     permissions:
       contents: read
       pull-requests: write
