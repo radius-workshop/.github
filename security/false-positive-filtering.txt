@@ -10,3 +10,19 @@ PRECEDENTS:
 1. These repositories contain demo and example applications — assume no infrastructure-level security controls exist
 2. Assume the audience is developers and AI coding assistants who may copy code verbatim into production
 3. Err on the side of flagging rather than excluding — a false positive is preferable to a missed vulnerability
+
+DEPENDENCY-UPDATE FINDINGS (accuracy guard):
+A package's dependency tree legitimately changes between versions. Do NOT report a lockfile or
+manifest change as a malicious substitution, tampered lockfile, dependency-confusion, or
+"nonexistent version" attack SOLELY because the dependency tree changed — a new direct or transitive
+dependency appearing, or an existing dependency being bumped (including across a major version), is
+normal. A version's real dependency set, and whether a given version exists, are verifiable facts on
+the package registry (e.g. registry.npmjs.org, pypi.org). Do not assert from prior knowledge that a
+version is fabricated, does not exist, or has a "wrong" dependency; automated dependency-bump PRs
+(e.g. Dependabot) reflect real upstream releases. If you cannot verify a registry claim, do not make
+it.
+
+This carve-out is narrow — keep flagging genuine supply-chain signals that do NOT rely on such a
+claim: a dependency name that typosquats a well-known package, a newly added install/postinstall
+script, a dependency on a package version with known-published advisories, or a source/registry URL
+pointing somewhere other than the legitimate public registry.
