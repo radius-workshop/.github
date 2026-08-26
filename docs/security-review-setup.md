@@ -69,29 +69,39 @@ redundant and create drift.
 `gh repo create <name> --add-readme`, or tick "Add a README file" in the
 UI. Then do all real work through pull requests, as normal.
 
-Why this matters, and what NOT to do:
+### If a push to the default branch is rejected
 
-The ruleset protects the default branch of every repo, but it can only
-act on a branch that already exists. A brand-new **empty** repo has no
-default branch yet, so its very first commit cannot go through a PR — a
-PR needs an existing base branch (chicken-and-egg). `--add-readme` makes
-that unavoidable first commit a server-side README with no code in it,
-and the default branch exists and is protected from that point on, so all
-real code arrives via a scanned PR.
+Putting your changes on a feature branch, pushing that, and opening a PR
+is the **normal workflow, not a workaround** — the PR gets scanned and
+merges once it passes. A `GH013 ... Required workflow 'Claude Security
+Review (required)' is not satisfied` rejection on a direct push to the
+default branch just means "open a PR instead."
 
-If instead you create an empty repo and push code to it, you will hit the
-gate — and there is a wrong way around it. **Do not** push your code to a
-side branch and then rename it onto the default, or repoint the default
-branch at it, or use an admin bypass. Every one of those lands unscanned
-code on a protected branch while leaving the ruleset reporting all rules
-active — the repo *looks* governed but its initial code never was. If a
-push is rejected with `GH013 ... Required workflow 'Claude Security
-Review (required)' is not satisfied`, that is the gate working as
-intended. Start over with `--add-readme` and open a PR.
+What *is* a bypass is getting code onto the default branch **without a
+scanned PR**: pushing it to a side branch and then renaming that branch
+onto the default, repointing the default branch at it, or an admin bypass
+merge. Each lands unscanned code on a protected branch while the ruleset
+still reports every rule active — the repo *looks* governed, but that
+code never was. Do not do this.
 
-> This holds for any tool driving the repo — a human, or an AI coding
+### The one case branch-and-PR can't cover: commit zero
+
+The ruleset protects a default branch that already exists. A brand-new
+**empty** repo has no default branch yet, and a PR needs an existing base
+branch to target — so the very first commit cannot go through a PR at all
+(chicken-and-egg). This is exactly the gap the rename/repoint trick
+abuses to smuggle a whole initial codebase in unscanned.
+
+The fix is to never let commit zero carry code: create the repo with
+`--add-readme` so the first commit is a harmless server-side README, the
+default branch exists and is protected from that point on, and every real
+change after it arrives through a scanned PR.
+
+> This holds for any tool driving the repo — a person, or an AI coding
 > agent (Claude Code, Codex, Gemini, …). A rejected push is a
-> stop-and-report signal, never an obstacle to engineer around.
+> stop-and-report signal: open a PR, or (for a new repo) recreate it with
+> `--add-readme` — never route the code onto the default branch some
+> other way.
 
 ## Bypassing in an emergency
 
