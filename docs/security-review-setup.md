@@ -63,10 +63,45 @@ access set to "All repositories." The required workflow forwards it via
 There should be no repo-level copies of `ANTHROPIC_API_KEY` — they are
 redundant and create drift.
 
-## Adding a new repo
+## Creating a new repo
 
-Nothing. The ruleset targets every repo in the org by default, so new
-repos are protected as soon as they're created.
+**Create every new repo with its default branch already initialized** —
+`gh repo create <name> --add-readme`, or tick "Add a README file" in the
+UI. Then do all real work through pull requests, as normal.
+
+### If a push to the default branch is rejected
+
+Putting your changes on a feature branch, pushing that, and opening a PR
+is the **normal workflow** — the PR gets scanned and
+merges once it passes. A `GH013 ... Required workflow 'Claude Security
+Review (required)' is not satisfied` rejection on a direct push to the
+default branch just means "open a PR instead."
+
+Do not use any strategy that allows bypassing the security check and getting code onto the default branch
+**without a scanned PR**. This includes pushing it to a side branch and then 
+renaming that branch onto the default, repointing the default branch at it, or 
+an admin bypass merge. Each lands unscanned code on a protected branch while 
+the ruleset still reports every rule active — the repo *looks* governed, but that
+code never was scanned. Do not do this.
+
+### The one case branch-and-PR can't cover: commit zero
+
+The ruleset protects a default branch that already exists. A brand-new
+**empty** repo has no default branch yet, and a PR needs an existing base
+branch to target — so the very first commit cannot go through a PR at all
+(chicken-and-egg). This is exactly the gap the rename/repoint trick
+abuses to smuggle a whole initial codebase in unscanned.
+
+The fix is to never let commit zero carry code: create the repo with
+`--add-readme` so the first commit is a harmless server-side README, the
+default branch exists and is protected from that point on, and every real
+change after it arrives through a scanned PR.
+
+> This holds for any tool driving the repo — a person, or an AI coding
+> agent (Claude Code, Codex, Gemini, …). A rejected push is a
+> stop-and-report signal: open a PR, or (for a new repo) recreate it with
+> `--add-readme` — never route the code onto the default branch some
+> other way.
 
 ## Bypassing in an emergency
 
