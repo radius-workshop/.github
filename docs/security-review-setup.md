@@ -72,17 +72,17 @@ UI. Then do all real work through pull requests, as normal.
 ### If a push to the default branch is rejected
 
 Putting your changes on a feature branch, pushing that, and opening a PR
-is the **normal workflow, not a workaround** — the PR gets scanned and
+is the **normal workflow** — the PR gets scanned and
 merges once it passes. A `GH013 ... Required workflow 'Claude Security
 Review (required)' is not satisfied` rejection on a direct push to the
 default branch just means "open a PR instead."
 
-What *is* a bypass is getting code onto the default branch **without a
-scanned PR**: pushing it to a side branch and then renaming that branch
-onto the default, repointing the default branch at it, or an admin bypass
-merge. Each lands unscanned code on a protected branch while the ruleset
-still reports every rule active — the repo *looks* governed, but that
-code never was. Do not do this.
+Do not use any strategy that allows bypassing the security check and getting code onto the default branch
+**without a scanned PR**. This includes pushing it to a side branch and then 
+renaming that branch onto the default, repointing the default branch at it, or 
+an admin bypass merge. Each lands unscanned code on a protected branch while 
+the ruleset still reports every rule active — the repo *looks* governed, but that
+code never was scanned. Do not do this.
 
 ### The one case branch-and-PR can't cover: commit zero
 
