@@ -63,10 +63,35 @@ access set to "All repositories." The required workflow forwards it via
 There should be no repo-level copies of `ANTHROPIC_API_KEY` — they are
 redundant and create drift.
 
-## Adding a new repo
+## Creating a new repo
 
-Nothing. The ruleset targets every repo in the org by default, so new
-repos are protected as soon as they're created.
+**Create every new repo with its default branch already initialized** —
+`gh repo create <name> --add-readme`, or tick "Add a README file" in the
+UI. Then do all real work through pull requests, as normal.
+
+Why this matters, and what NOT to do:
+
+The ruleset protects the default branch of every repo, but it can only
+act on a branch that already exists. A brand-new **empty** repo has no
+default branch yet, so its very first commit cannot go through a PR — a
+PR needs an existing base branch (chicken-and-egg). `--add-readme` makes
+that unavoidable first commit a server-side README with no code in it,
+and the default branch exists and is protected from that point on, so all
+real code arrives via a scanned PR.
+
+If instead you create an empty repo and push code to it, you will hit the
+gate — and there is a wrong way around it. **Do not** push your code to a
+side branch and then rename it onto the default, or repoint the default
+branch at it, or use an admin bypass. Every one of those lands unscanned
+code on a protected branch while leaving the ruleset reporting all rules
+active — the repo *looks* governed but its initial code never was. If a
+push is rejected with `GH013 ... Required workflow 'Claude Security
+Review (required)' is not satisfied`, that is the gate working as
+intended. Start over with `--add-readme` and open a PR.
+
+> This holds for any tool driving the repo — a human, or an AI coding
+> agent (Claude Code, Codex, Gemini, …). A rejected push is a
+> stop-and-report signal, never an obstacle to engineer around.
 
 ## Bypassing in an emergency
 
