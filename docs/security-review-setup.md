@@ -65,9 +65,26 @@ redundant and create drift.
 
 ## Creating a new repo
 
-**Create every new repo with its default branch already initialized** —
-`gh repo create <name> --add-readme`, or tick "Add a README file" in the
-UI. Then do all real work through pull requests, as normal.
+Create every new repo **from the org template** so its default branch is
+initialized at creation *and* it ships with the security-gate guidance every
+AI coding agent reads:
+
+```bash
+gh repo create radius-workshop/<name> \
+  --template radius-workshop/repo-template \
+  --clone \
+  --private            # or --public — one is required
+```
+
+`--template radius-workshop/repo-template` seeds commit zero from the template
+repo, which carries `README.md`, `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md`. So
+whichever agent a developer points at the repo — Claude Code (`CLAUDE.md`),
+Codex (`AGENTS.md`), Gemini (`GEMINI.md`) — reads the same rules from the repo's
+first commit. Those files entered `repo-template` through a scanned PR, so
+commit zero is a **reviewed baseline** rather than arbitrary unscanned code.
+`--clone` checks the new repo out locally so you can start working immediately.
+
+Then do all real work through pull requests, as normal.
 
 ### If a push to the default branch is rejected
 
@@ -92,15 +109,15 @@ branch to target — so the very first commit cannot go through a PR at all
 (chicken-and-egg). This is exactly the gap the rename/repoint trick
 abuses to smuggle a whole initial codebase in unscanned.
 
-The fix is to never let commit zero carry code: create the repo with
-`--add-readme` so the first commit is a harmless server-side README, the
-default branch exists and is protected from that point on, and every real
-change after it arrives through a scanned PR.
+The fix is to never let commit zero carry unreviewed code: create the repo
+from the template (above) so the first commit is a **reviewed** server-side
+baseline, the default branch exists and is protected from that point on, and
+every real change after it arrives through a scanned PR.
 
 > This holds for any tool driving the repo — a person, or an AI coding
 > agent (Claude Code, Codex, Gemini, …). A rejected push is a
-> stop-and-report signal: open a PR, or (for a new repo) recreate it with
-> `--add-readme` — never route the code onto the default branch some
+> stop-and-report signal: open a PR, or (for a new repo) recreate it from
+> the template — never route the code onto the default branch some
 > other way.
 
 ## Bypassing in an emergency
@@ -119,6 +136,93 @@ line, severity, and recommendation. To clear the gate:
 - **False positive**: leave a comment with reasoning. If the pattern is
   recurring, update `security/false-positive-filtering.txt` in this repo
   so future runs suppress it.
+
+## Troubleshooting
+
+The failure mode that matters most here is **silent**: the workflow files, the
+secret, and the docs can all look healthy while no scan is actually running.
+Diagnose in the order below.
+
+### No PR anywhere is getting scanned (org-wide)
+
+If *no* PR in any repo is getting a `Claude Security Review (required)` check
+(empty status checks, `mergeStateStatus: CLEAN` with no Claude check), the cause
+is almost always the **ruleset**, not the workflow files. Enforcement hinges
+entirely on the required-workflow rule inside `protect-main`, and that rule has
+been silently dropped before — which turned scanning off org-wide while every
+workflow file still looked fine.
+
+Check the ruleset's `rules` array **first**:
+
+```bash
+gh api /orgs/radius-workshop/rulesets/16146745 --jq '.rules[].type'
+```
+
+You should see `deletion`, `non_fast_forward`, `pull_request`, **and**
+`workflows`. If `workflows` is missing, that is the outage — re-add the
+required-workflow rule pointing at
+`.github/workflows/security-review-required.yml` @ `refs/heads/main`. To see
+when and by whom a rule changed:
+
+```bash
+gh api /orgs/radius-workshop/rulesets/16146745/history
+```
+
+The per-repo caller workflows were deliberately removed — the ruleset is the
+**sole** trigger, so nothing in an individual repo will start a scan on its own.
+That is by design, and it is why the ruleset is the first thing to check.
+
+### One PR has no scan, or a stale result
+
+A config change does **not** retroactively re-scan already-open PRs — the scan
+runs on `pull_request` events. An existing PR keeps its last result (or absence
+of one) until a new event fires. Re-trigger it:
+
+- **Normal PR:** push a commit, or close and reopen the PR.
+- **Dependabot PR:** comment `@dependabot recreate` (force-pushes a fresh commit
+  and fires the event; `rebase` is a no-op if the branch is already current).
+
+### The scan check appears but merge isn't blocked
+
+A check showing on a PR is not the same as it being *required*. "Required"
+enforcement comes from the ruleset rule, which matches the workflow by name. If
+a green or red check shows but the PR merges anyway, confirm the `workflows` rule
+is present (above) and that it references the correct workflow file and ref.
+
+### A new repo comes up empty after `--template` create
+
+If `gh repo create --template` exits successfully but leaves the repo with no
+`main` and no files, the `protect-main` ruleset is rejecting commit zero. The
+`--template` create writes the initial commit **server-side, at creation**, and
+the require-workflows rule must have `do_not_enforce_on_create: true` to allow
+it. When that field is `false`, GitHub rejects the initial commit —
+`Required workflow 'Claude Security Review (required)' is not satisfied` — and
+the repo is left empty.
+
+A required workflow can't run on a bare ref creation, so enforcing it on create
+blocks *all* bootstrapping while adding no scan. **This field must stay `true`.**
+Check it first whenever a create produces an empty repo:
+
+```bash
+gh api /orgs/radius-workshop/rulesets/16146745 \
+  --jq '.rules[] | select(.type=="workflows") | .parameters.do_not_enforce_on_create'
+```
+
+### Expected non-failures (not bugs)
+
+- **PRs in `radius-workshop/.github` itself are not scanned.** A required
+  workflow is exempt on the repo that *stores* it (source-repo exemption), so
+  this repo's own PRs show all-green with no Claude check and are not blocked by
+  the gate. That is GitHub behavior, not a broken gate — but it means changes to
+  the scan config here land without being scanned, so review them with
+  corresponding care.
+
+### Where to change scan behavior
+
+All scan behavior lives in **this repo** (`radius-workshop/.github`): workflow
+logic under `.github/workflows/`, scanner tuning under `security/`. Never add a
+scan workflow to an individual repo to "fix" it — that reintroduces the per-repo
+drift the central setup was built to eliminate.
 
 ## Custom categories
 
